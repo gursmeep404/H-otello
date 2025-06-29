@@ -1,73 +1,39 @@
 from fastapi import FastAPI, Form
 from fastapi.responses import PlainTextResponse
-import google.generativeai as genai
-import json
 import os
 from dotenv import load_dotenv
+from mongodb_assistant import MongoDBAssistant 
+from urllib.parse import quote_plus
 
+# Load environment variables
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY not found in .env file")
-
-
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest")
-
-
+# Create FastAPI app
 app = FastAPI()
 
+mongo_user = quote_plus(os.getenv("MONGO_USER") or "")
+mongo_pass = quote_plus(os.getenv("MONGO_PASS") or "")
 
-def extract_intent_from_message(message: str) -> dict:
-    prompt = f"""
-You are a hotel assistant bot. Understand the user's message and extract structured data.
+MONGODB_URI = f"mongodb+srv://{mongo_user}:{mongo_pass}@ottelo.y5psic0.mongodb.net/?retryWrites=true&w=majority"
 
-Input: "{message}"
-
-Reply only with JSON like this:
-{{
-  "action": "block_room" / "change_rate" / "get_address",
-  "room": "3",
-  "start_date": "2024-07-02",
-  "end_date": "2024-07-05",
-  "price": "1800"
-}}
-
-If fields are not relevant, leave them null.
-"""
-
-    try:
-        
-        response = model.generate_content(prompt)
-        raw_text = response.text.strip()
-
-        print("Raw Gemini Output:")
-        print(raw_text)
-
-        # 🧹 Clean markdown formatting if present
-        if raw_text.startswith("```"):
-            lines = raw_text.splitlines()
-            json_lines = [line for line in lines if not line.strip().startswith("```") and line.strip() != "json"]
-            raw_text = "\n".join(json_lines).strip()
-
-        # Parse cleaned JSON string
-        parsed = json.loads(raw_text)
-        return parsed
-
-    except Exception as e:
-        print("Error parsing Gemini response:", e)
-        return {"action": "unknown", "error": str(e)}
-
-
+# Initialize the LangChain assistant only once
+assistant = MongoDBAssistant(
+    api_key=os.getenv("GEMINI_API_KEY"),
+    mongodb_uri=MONGODB_URI,
+    db_name=os.getenv("MONGO_DB_NAME")
+)
 
 @app.post("/webhook")
 async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
-    print(f"\nMessage from {From}: {Body}")
+    print(f"\nMessage from WhatsApp: {From} => {Body}")
 
-    parsed = extract_intent_from_message(Body)
+    # Use the assistant to process the message
+    try:
+        response_text = assistant.chat(Body)
+    except Exception as e:
+        response_text = f"Something went wrong: {str(e)}"
 
-    print("Gemini Parsed Output:")
-    print(json.dumps(parsed, indent=2))
+    print("Response to WhatsApp:")
+    print(response_text)
 
-    return PlainTextResponse(f"Gemini JSON:\n{json.dumps(parsed, indent=2)}")
+    return PlainTextResponse(response_text)

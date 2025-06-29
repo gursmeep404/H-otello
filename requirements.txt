@@ -4,3 +4,5 @@ python-multipar
 pymongo
 google-generativeai
 dotenv
+langchain
+langchain-community
