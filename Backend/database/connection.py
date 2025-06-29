@@ -14,7 +14,7 @@ password = quote_plus(password_env.encode())
 uri = f"mongodb+srv://{user}:{password}@ottelo.y5psic0.mongodb.net/?retryWrites=true&w=majority"
 
 client = MongoClient(uri)
-db = client["main"]
+db = client["ottelodb"]
 
 hosts = db["hosts"]
 properties = db["properties"]

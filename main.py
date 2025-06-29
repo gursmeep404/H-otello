@@ -25,17 +25,41 @@ async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
     print(f"\nMessage from WhatsApp: {From} => {Body}")
 
     try:
-        response_text = assistant.chat(Body)
+        result = assistant.chat(Body)
+
+        if isinstance(result, dict) and "output" in result:
+            raw_output = result["output"]
+
+            # If output is a JSON string representing a list of documents
+            try:
+                import json
+                docs = json.loads(raw_output)
+                if isinstance(docs, list):
+                    # Format each document into a readable string
+                    response_text = "Bookings:\n\n"
+                    for i, doc in enumerate(docs, start=1):
+                        response_text += f"{i}. Guest: {doc.get('guest_name')}\n   Room ID: {doc.get('room_id')}\n   Check-in: {doc.get('check_in')}\n   Check-out: {doc.get('check_out')}\n   Amount Paid: ₹{doc.get('amount_paid')}\n\n"
+                else:
+                    response_text = raw_output
+            except Exception:
+                response_text = raw_output
+
+        elif isinstance(result, str):
+            response_text = result
+        else:
+            response_text = str(result)
+
     except Exception as e:
         response_text = f"Something went wrong: {str(e)}"
 
     print("Response to WhatsApp:")
     print(response_text)
 
-    # Return TwiML XML response
+    # Return TwiML XML response (escaped)
+    from html import escape
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Message>{response_text}</Message>
+    <Message>{escape(response_text)}</Message>
 </Response>"""
 
     return Response(content=twiml, media_type="application/xml")
