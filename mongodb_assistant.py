@@ -17,14 +17,14 @@ from bson import Timestamp
 
 
 # Configuration
-load_dotenv()
-GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY") 
-DATABASE_NAME = os.getenv("MONGO_DB_NAME")
+# load_dotenv()
+# GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY") 
+# DATABASE_NAME = os.getenv("MONGO_DB_NAME")
 
-user = os.getenv("MONGO_USER") or ""
-password_env = os.getenv("MONGO_PASS") or ""
-password = quote_plus(password_env.encode())
-MONGODB_URI = f"mongodb+srv://{user}:{password}@ottelo.y5psic0.mongodb.net/?retryWrites=true&w=majority"
+# user = os.getenv("MONGO_USER") or ""
+# password_env = os.getenv("MONGO_PASS") or ""
+# password = quote_plus(password_env.encode())
+# MONGODB_URI = f"mongodb+srv://{user}:{password}@ottelo.y5psic0.mongodb.net/?retryWrites=true&w=majority"
 
 class MongoDBAssistant:
     def __init__(self, api_key: str, mongodb_uri: str, db_name: str):
@@ -256,10 +256,25 @@ class MongoDBAssistant:
             max_iterations=3
         )
     
-    def chat(self, message: str) -> str:
-        """Main chat interface"""
+    def chat(self, message: str) -> Dict[str, str]:
+        """Main chat interface — returns both output and tool used"""
         try:
             response = self.agent.invoke({"input": message})
-            return response["output"]
+            steps = response.get("intermediate_steps", [])
+            
+            tool_used = None
+            if steps:
+                # Each step is a tuple: (AgentAction, Observation)
+                last_action = steps[-1][0]
+                tool_used = last_action.tool if hasattr(last_action, "tool") else None
+            
+            return {
+                "output": response["output"],
+                "tool": tool_used or "unknown"
+            }
         except Exception as e:
-            return f"Error processing request: {str(e)}"
+            return {
+                "output": f"Error processing request: {str(e)}",
+                "tool": "error"
+            }
+
