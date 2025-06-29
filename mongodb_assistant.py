@@ -101,7 +101,7 @@ class MongoDBAssistant:
             - properties: {{host_id, name, location, default_price, rooms: [{{room_id, name, type, max_guests, is_active}}], created_at}}
             - bookings: {{room_id, property_id, guest_name, check_in, check_out, amount_paid, source, created_at}}
             - availability_calendar: {{room_id, date, is_available, price}}
-            - guests: {{phone_number, ...}}
+            - guests: {{name, phone_number, email}}
             
             Query: {query_description}
             
@@ -151,23 +151,37 @@ class MongoDBAssistant:
         """Execute database updates based on natural language description"""
         try:
             prompt = f"""
-            Convert this natural language update request to MongoDB update operation.
-            ...
-            Examples:
-            1. "Block room 3 from July 2 to July 5"
-            → Insert documents in 'availability_calendar' with:
-            {{"room_id": 3, "date": each date between July 2 and July 5, "is_available": false}}
+            You are a helpful assistant that converts natural language update instructions into structured MongoDB operations.
 
-            2. "Make room 101 unavailable for the weekend"
-            → Insert/update in 'availability_calendar'
+            Respond ONLY with a valid JSON object. Do not include any explanation or markdown. Your response MUST include:
 
-            Update Request: {update_description}
-            ...
+            - "collection": name of the MongoDB collection to update
+            - "operation": one of "update_one", "update_many", "insert_one", "delete_one"
+            - "filter": the MongoDB query filter (for updates/deletes)
+            - "update": the MongoDB update object (if operation is update)
+            - "document": (only if operation is insert_one)
+
+            Example:
+            Natural Language: Change the price of Startup Villa to 2000
+
+            Response:
+            {{
+            "collection": "properties",
+            "operation": "update_one",
+            "filter": {{ "name": "Startup Villa" }},
+            "update": {{ "$set": {{ "default_price": 2000 }} }}
+            }}
+
+            Now process this request:
+            "{update_description}"
             """
 
-            
+
+                        
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            update_data = self.safe_json_loads(response.content.strip())
+            print("Raw LLM response:", response.content) 
+            update_data = extract_json_from_llm_response(response.content.strip())
+
             
             if not update_data:
                 return "Could not parse the update request. Please try rephrasing."
@@ -277,4 +291,31 @@ class MongoDBAssistant:
                 "output": f"Error processing request: {str(e)}",
                 "tool": "error"
             }
+        
+def extract_json_from_llm_response(text: str) -> dict | None:
+        """
+        Extract the first JSON object from an LLM response, ignoring markdown and explanations.
+        """
+        try:
+            # Remove triple-backtick markdown
+            text = re.sub(r"```(?:json|javascript)?\n?", "", text, flags=re.IGNORECASE).strip()
+            text = re.sub(r"\n```", "", text)
 
+            # Find first {...} block using a stack-based parser (robust way)
+            brace_stack = []
+            start_idx = None
+            for i, char in enumerate(text):
+                if char == '{':
+                    if not brace_stack:
+                        start_idx = i
+                    brace_stack.append('{')
+                elif char == '}':
+                    if brace_stack:
+                        brace_stack.pop()
+                        if not brace_stack:
+                            json_candidate = text[start_idx:i+1]
+                            return json.loads(json_candidate)
+            return None
+        except Exception as e:
+            print("JSON extract error:", e)
+            return None
