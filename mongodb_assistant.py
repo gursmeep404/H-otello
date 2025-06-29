@@ -151,30 +151,46 @@ class MongoDBAssistant:
         """Execute database updates based on natural language description"""
         try:
             prompt = f"""
-            You are a helpful assistant that converts natural language update instructions into structured MongoDB operations.
+                You are a backend assistant that converts natural language database update instructions into valid MongoDB update operations.
 
-            Respond ONLY with a valid JSON object. Do not include any explanation or markdown. Your response MUST include:
+                Respond ONLY with a valid **JSON object**. Do NOT include explanations or markdown formatting.
 
-            - "collection": name of the MongoDB collection to update
-            - "operation": one of "update_one", "update_many", "insert_one", "delete_one"
-            - "filter": the MongoDB query filter (for updates/deletes)
-            - "update": the MongoDB update object (if operation is update)
-            - "document": (only if operation is insert_one)
+                Your JSON must include:
 
-            Example:
-            Natural Language: Change the price of Startup Villa to 2000
+                - "collection": name of the MongoDB collection to update
+                - "operation": one of: "update_one", "update_many", "insert_one", "delete_one"
+                - "filter": the query to match the target document(s)
+                - "update": the MongoDB update document (only for update operations)
+                - "document": only if the operation is "insert_one"
+                - "array_filters": optional, for nested array updates (use snake_case only)
 
-            Response:
-            {{
-            "collection": "properties",
-            "operation": "update_one",
-            "filter": {{ "name": "Startup Villa" }},
-            "update": {{ "$set": {{ "default_price": 2000 }} }}
-            }}
+                ### Examples:
 
-            Now process this request:
-            "{update_description}"
-            """
+                Natural Language: Change the price of Startup Villa to 2000  
+                Response:
+                {{
+                "collection": "properties",
+                "operation": "update_one",
+                "filter": {{ "name": "Startup Villa" }},
+                "update": {{ "$set": {{ "default_price": 2000 }} }}
+                }}
+
+                Natural Language: Make room 1 in Startup Villa inactive  
+                Response:
+                {{
+                "collection": "properties",
+                "operation": "update_one",
+                "filter": {{ "name": "Startup Villa" }},
+                "update": {{ "$set": {{ "rooms.$[room].is_active": false }} }},
+                "array_filters": [
+                    {{ "room.name": "Room 1" }}
+                ]
+                }}
+
+                Now process this request:
+                "{update_description}"
+                """
+
 
 
                         
@@ -194,14 +210,37 @@ class MongoDBAssistant:
             if operation == "update_one":
                 filter_criteria = update_data.get("filter", {})
                 update_doc = update_data.get("update", {})
-                result = collection.update_one(filter_criteria, update_doc)
+
+                # Normalize LLM inconsistency
+                if "arrayFilters" in update_data:
+                    update_data["array_filters"] = update_data.pop("arrayFilters")
+
+                array_filters = update_data.get("array_filters", None)
+
+                if array_filters:
+                    result = collection.update_one(filter_criteria, update_doc, array_filters=array_filters)
+                else:
+                    result = collection.update_one(filter_criteria, update_doc)
+
+                # Custom OK message for is_active field update
+                if "$set" in update_doc and any("is_active" in k for k in update_doc["$set"]):
+                    return "OK" if result.modified_count > 0 else "No matching room found to update."
+
                 return f"Updated {result.modified_count} document(s)"
-                
+
+
+
+
             elif operation == "update_many":
                 filter_criteria = update_data.get("filter", {})
                 update_doc = update_data.get("update", {})
-                result = collection.update_many(filter_criteria, update_doc)
+                array_filters = update_data.get("array_filters", None)
+                if array_filters:
+                    result = collection.update_many(filter_criteria, update_doc, array_filters=array_filters)
+                else:
+                    result = collection.update_many(filter_criteria, update_doc)
                 return f"Updated {result.modified_count} document(s)"
+
                 
             elif operation == "insert_one":
                 document = update_data.get("document", {})
