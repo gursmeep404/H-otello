@@ -24,21 +24,13 @@ interface SubmitPayload {
 const App: React.FC = () => {
   const [query, setQuery] = useState<string | null>(null);
   const [response, setResponse] = useState<string>('');
-  const [unansweredCount, setUnansweredCount] = useState<number>(0);
 
   useEffect(() => {
     const fetchQuery = async (): Promise<void> => {
       try {
         const res = await fetch('http://localhost:4000/api/query');
         const data: ApiResponse = await res.json();
-
-        // Only update query if we don't already have one (i.e., no unanswered query)
-        if (data.query && !query) {
-          setQuery(data.query);
-        }
-
-        // Always update the counter
-        setUnansweredCount(data.unansweredCount || 0);
+        if (data.query) setQuery(data.query);
       } catch (error) {
         console.error('Error fetching query:', error);
       }
@@ -46,7 +38,7 @@ const App: React.FC = () => {
 
     const interval = setInterval(fetchQuery, 3000);
     return () => clearInterval(interval);
-  }, [query]); // Add query as dependency so it knows when query state changes
+  }, []);
 
   const handleSubmit = async (): Promise<void> => {
     if (!response.trim()) return;
@@ -58,8 +50,6 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
-      // Clear both query and response after successful submission
       setQuery(null);
       setResponse('');
     } catch (error) {
@@ -85,11 +75,6 @@ const App: React.FC = () => {
             <h1 className='text-4xl font-bold text-blue-800'>
               Query Resolution Dashboard
             </h1>
-            {unansweredCount > 0 && (
-              <Badge className='bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1'>
-                {unansweredCount} pending
-              </Badge>
-            )}
           </div>
           <p className='text-gray-600 text-lg'>
             Assist AI with human expertise when needed
@@ -105,20 +90,13 @@ const App: React.FC = () => {
                 Current Query
               </CardTitle>
               {query && (
-                <div className='flex items-center gap-2'>
-                  <Badge
-                    variant='secondary'
-                    className='bg-amber-100 text-amber-800 border-amber-200'
-                  >
-                    <Clock className='w-3 h-3 mr-1' />
-                    Awaiting Response
-                  </Badge>
-                  {unansweredCount > 1 && (
-                    <Badge className='bg-blue-500 text-white text-xs'>
-                      +{unansweredCount - 1} more in queue
-                    </Badge>
-                  )}
-                </div>
+                <Badge
+                  variant='secondary'
+                  className='bg-amber-100 text-amber-800 border-amber-200'
+                >
+                  <Clock className='w-3 h-3 mr-1' />
+                  Awaiting Response
+                </Badge>
               )}
             </div>
           </CardHeader>
@@ -193,14 +171,8 @@ const App: React.FC = () => {
         </Card>
 
         {/* Footer */}
-        <div className='text-center mt-8 text-gray-500 text-sm space-y-1'>
+        <div className='text-center mt-8 text-gray-500 text-sm'>
           <p>System checks for new queries every 3 seconds</p>
-          {unansweredCount > 0 && (
-            <p className='text-blue-600 font-medium'>
-              📋 {unansweredCount} {unansweredCount === 1 ? 'query' : 'queries'}{' '}
-              awaiting response
-            </p>
-          )}
         </div>
       </div>
     </div>

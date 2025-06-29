@@ -14,8 +14,7 @@ import re
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 from bson import Timestamp
-
-
+from fallback import send_to_dashboard
 # Configuration
 # load_dotenv()
 # GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY") 
@@ -119,6 +118,8 @@ class MongoDBAssistant:
             query_data = self.safe_json_loads(response.content.strip())
             
             if not query_data:
+                send_to_dashboard(query_description,reason="Could not parsed")
+                print("❌ Sorry, I couldn’t understand your query. I've sent it to a human.")
                 return "Could not parse the query. Please try rephrasing."
             
             collection_name = query_data.get("collection")
