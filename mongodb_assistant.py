@@ -13,6 +13,8 @@ from langchain.schema import HumanMessage
 import re
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
+from bson import Timestamp
+
 
 # Configuration
 load_dotenv()
@@ -45,33 +47,48 @@ class MongoDBAssistant:
     
     
     def safe_json_loads(self, s: str) -> Dict:
-        """Safely parse JSON, handling ObjectId and datetime"""
         try:
-            # Replace ObjectId representations
+            # Remove Markdown-style triple backticks
+            s = s.strip()
+            if s.startswith("```"):
+                s = re.sub(r"```(?:json)?", "", s)  # remove ``` or ```json
+                s = s.replace("```", "")
+                s = s.strip()
+            
+            # Replace ObjectId patterns
             s = re.sub(r'ObjectId\(["\']([^"\']+)["\']\)', r'"\1"', s)
+
+            # Fix single quotes (optional)
+            s = s.replace("'", '"')
+
             return json.loads(s)
-        except:
+        except Exception as e:
+            print(f"JSON decode failed: {e}\nRaw response:\n{s}")
             return {}
+
     
     def serialize_doc(self, doc) -> Dict:
         """Serialize MongoDB document for JSON response"""
         if doc is None:
             return {}
-        
+
         result = {}
         for key, value in doc.items():
             if isinstance(value, ObjectId):
                 result[key] = str(value)
             elif isinstance(value, datetime):
                 result[key] = value.isoformat()
+            elif isinstance(value, Timestamp):  # 👈 add this
+                result[key] = value.as_datetime().isoformat()  # convert Timestamp to ISO
             elif isinstance(value, list):
                 result[key] = [self.serialize_doc(item) if isinstance(item, dict) else 
-                              str(item) if isinstance(item, ObjectId) else item for item in value]
+                            str(item) if isinstance(item, ObjectId) else item for item in value]
             elif isinstance(value, dict):
                 result[key] = self.serialize_doc(value)
             else:
                 result[key] = value
         return result
+
     
     def query_database(self, query_description: str) -> str:
         """Execute database queries based on natural language description"""
