@@ -16,19 +16,14 @@ uri = f"mongodb+srv://{user}:{password}@ottelo.y5psic0.mongodb.net/?retryWrites=
 client = MongoClient(uri)
 db = client["ottelodb"]
 
+
 hosts = db["hosts"]
 properties = db["properties"]
 availability = db["availability_calendar"]
 bookings = db["bookings"]
 guests = db["guests"]
-
-
-hosts.create_index("phone_number", unique=True)
-properties.create_index("host_id")
-availability.create_index([("room_id", ASCENDING), ("date", ASCENDING)], unique=True)
-bookings.create_index("room_id")
-bookings.create_index("property_id")
-guests.create_index("phone_number")
+messages = db["messages"]
+analytics = db["analytics_snapshots"]
 
 print("✅ Collections & Indexes Created")
 
@@ -81,4 +76,5 @@ bookings_id = bookings.insert_one({
     "created_at": datetime.utcnow()
 }).inserted_id
 
-print("📦 Sample data inserted successfully.")
+print("Sample data inserted successfully.")
+ 

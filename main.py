@@ -15,9 +15,9 @@ mongo_pass = quote_plus(os.getenv("MONGO_PASS") or "")
 MONGODB_URI = f"mongodb+srv://{mongo_user}:{mongo_pass}@ottelo.y5psic0.mongodb.net/?retryWrites=true&w=majority"
 
 assistant = MongoDBAssistant(
-    api_key=os.getenv("GEMINI_API_KEY"),
+    api_key=os.getenv("GEMINI_API_KEY") or "",
     mongodb_uri=MONGODB_URI,
-    db_name=os.getenv("MONGO_DB_NAME")
+    db_name=os.getenv("MONGO_DB_NAME") or "",
 )
 
 @app.post("/webhook")

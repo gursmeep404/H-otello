@@ -3,3 +3,4 @@ venv/
 /Backend/myenv
 env
 .env
+/Dashboard/backend/node_modules
