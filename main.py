@@ -17,7 +17,7 @@ mongo_pass = quote_plus(os.getenv("MONGO_PASS") or "")
 MONGODB_URI = f"mongodb+srv://{mongo_user}:{mongo_pass}@ottelo.y5psic0.mongodb.net/?retryWrites=true&w=majority"
 
 assistant = MongoDBAssistant(
-    api_key=os.getenv("GEMINI_API_KEY") or "",
+    api_key=os.getenv("OPENAI_API_KEY") or "",
     mongodb_uri=MONGODB_URI,
     db_name=os.getenv("MONGO_DB_NAME") or "",
 )
@@ -61,7 +61,7 @@ async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
     <Message>{safe_response}</Message>
 </Response>"""
 
-    print("TwiML being sent to Twilio:")
-    print(twiml)
+    # print("TwiML being sent to Twilio:")
+    # print(twiml)
 
     return Response(content=twiml, media_type="application/xml")

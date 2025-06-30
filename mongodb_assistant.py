@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from bson import ObjectId
 from pymongo import MongoClient, ASCENDING
-import google.generativeai as genai
-from langchain_google_genai import ChatGoogleGenerativeAI
-# from langchain_openai import ChatOpenAI
+# import google.generativeai as genai
+# from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain.tools import Tool
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain import hub
@@ -16,31 +16,17 @@ from dotenv import load_dotenv
 from urllib.parse import quote_plus
 from bson import Timestamp
 from fallback import send_to_dashboard
-# Configuration
-# load_dotenv()
-# GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY") 
-# DATABASE_NAME = os.getenv("MONGO_DB_NAME")
 
-# user = os.getenv("MONGO_USER") or ""
-# password_env = os.getenv("MONGO_PASS") or ""
-# password = quote_plus(password_env.encode())
-# MONGODB_URI = f"mongodb+srv://{user}:{password}@ottelo.y5psic0.mongodb.net/?retryWrites=true&w=majority"
 
 class MongoDBAssistant:
     def __init__(self, api_key: str, mongodb_uri: str, db_name: str):
-        # Initialize Gemini
-        genai.configure(api_key=api_key)
-        self.llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            google_api_key=api_key,
-            temperature=0.1
-        )
+      
         # Initialize OpenAI
-        # self.llm = ChatOpenAI(
-        #     model="gpt-3.5-turbo",  # or 
-        #     api_key=api_key,
-        #     temperature=0.1
-# )
+        self.llm = ChatOpenAI(
+            model="gpt-4o", 
+            api_key=api_key,
+            temperature=0.1
+)
 
         
         # Initialize MongoDB
@@ -85,7 +71,7 @@ class MongoDBAssistant:
                 result[key] = str(value)
             elif isinstance(value, datetime):
                 result[key] = value.isoformat()
-            elif isinstance(value, Timestamp):  # 👈 add this
+            elif isinstance(value, Timestamp): 
                 result[key] = value.as_datetime().isoformat()  # convert Timestamp to ISO
             elif isinstance(value, list):
                 result[key] = [self.serialize_doc(item) if isinstance(item, dict) else 
