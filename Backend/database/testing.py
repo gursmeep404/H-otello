@@ -20,8 +20,8 @@ user = os.getenv("MONGO_USER") or ""
 password_env = os.getenv("MONGO_PASS") or ""
 password = quote_plus(password_env.encode())
 
-# Configuration
-GOOGLE_API_KEY = "AIzaSyBvfnsc7nLQX4FTnQMHRyq0Hjm5O_Dnu3Y"  # Replace with your actual API key
+
+GOOGLE_API_KEY = "AIzaSyBvfnsc7nLQX4FTnQMHRyq0Hjm5O_Dnu3Y" 
 MONGODB_URI = f"mongodb+srv://{user}:{password}@ottelo.y5psic0.mongodb.net/?retryWrites=true&w=majority"
 DATABASE_NAME = "ottelodb"
 
@@ -36,25 +36,25 @@ class MongoDBAssistant:
         # )
         self.llm = OllamaLLM(model="llama3.2:3b")
         
-        # Initialize MongoDB
+     
         self.client = MongoClient(mongodb_uri)
         self.db = self.client[db_name]
         
-        # Setup tools and agent
+
         self.tools = self.create_tools()
         self.agent = self.create_agent()
     
     def safe_json_loads(self, s: str) -> Dict:
-        """Safely parse JSON, handling ObjectId and datetime"""
+
         try:
-            # Replace ObjectId representations
+
             s = re.sub(r'ObjectId\(["\']([^"\']+)["\']\)', r'"\1"', s)
             return json.loads(s)
         except:
             return {}
     
     def serialize_doc(self, doc) -> Dict:
-        """Serialize MongoDB document for JSON response"""
+
         if doc is None:
             return {}
         
@@ -74,9 +74,9 @@ class MongoDBAssistant:
         return result
     
     def query_database(self, query_description: str) -> str:
-        """Execute database queries based on natural language description"""
+
         try:
-            # Use LLM to convert natural language to MongoDB query
+
             prompt = f"""
             Convert this natural language query to MongoDB aggregation pipeline or find query.
             Database Schema:
@@ -113,7 +113,7 @@ class MongoDBAssistant:
             query = query_data.get("query", {})
             limit = query_data.get("limit", 10)
             
-            # Get collection
+
             if not collection_name or not isinstance(collection_name, str):
                 return "Invalid or missing collection name in the query."
             collection = self.db[collection_name]
@@ -162,7 +162,7 @@ class MongoDBAssistant:
             """
             
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            # Fix: response is a string or list, not an object with 'content'
+
             if isinstance(response, list):
                 content_str = "".join(str(item) for item in response)
             else:
@@ -247,7 +247,7 @@ class MongoDBAssistant:
         ]
     
     def create_agent(self):
-        """Create the LangChain agent"""
+        """Creating the LangChain agent"""
         prompt = hub.pull("hwchase17/react")
         agent = create_react_agent(self.llm, self.tools, prompt)
         return AgentExecutor(
@@ -259,7 +259,7 @@ class MongoDBAssistant:
         )
     
     def chat(self, message: str) -> str:
-        """Main chat interface"""
+
         try:
             response = self.agent.invoke({"input": message})
             return response["output"]
@@ -267,8 +267,6 @@ class MongoDBAssistant:
             return f"Error processing request: {str(e)}"
 
 def main():
-    """Main function to run the assistant"""
-    # Initialize the assistant
     assistant = MongoDBAssistant(
         api_key=GOOGLE_API_KEY,
         mongodb_uri=MONGODB_URI,
@@ -300,7 +298,5 @@ def main():
         print()
 
 if __name__ == "__main__":
-    # Install required packages first:
-    # pip install pymongo google-generativeai langchain langchain-google-genai langchainhub
     
     main()
