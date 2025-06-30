@@ -4,5 +4,7 @@ venv/
 env
 .env
 /Dashboard/backend/node_modules
+__pycache__/
+*.py[cod]
 open_assistant.py
 openmain.py
