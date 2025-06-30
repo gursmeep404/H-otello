@@ -28,7 +28,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchQuery = async (): Promise<void> => {
       try {
-        const res = await fetch('http://localhost:4000/api/query');
+        const res = await fetch('http://127.0.0.1:8000/api/query');
         const data: ApiResponse = await res.json();
         if (data.query) setQuery(data.query);
       } catch (error) {
@@ -45,7 +45,7 @@ const App: React.FC = () => {
 
     try {
       const payload: SubmitPayload = { query, response };
-      await fetch('http://localhost:4000/api/respond', {
+      await fetch('http://127.0.0.1:8000/api/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

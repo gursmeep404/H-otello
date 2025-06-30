@@ -4,3 +4,5 @@ venv/
 env
 .env
 /Dashboard/backend/node_modules
+open_assistant.py
+openmain.py

@@ -17,15 +17,17 @@ from dotenv import load_dotenv
 from urllib.parse import quote_plus
 from bson import Timestamp
 from fallback import send_to_dashboard
+load_dotenv()
 
 
 class MongoDBAssistant:
     def __init__(self, api_key: str, mongodb_uri: str, db_name: str):
       
         # Initialize OpenAI
+        from pydantic import SecretStr
         self.llm = ChatOpenAI(
             model="gpt-4o", 
-            api_key=api_key,
+            api_key=SecretStr(os.getenv("OPEN_AI_API_KEY") or ""),
             temperature=0.1
 )
 
@@ -112,9 +114,7 @@ class MongoDBAssistant:
             response = self.llm.invoke([HumanMessage(content=prompt)])
             query_data = self.safe_json_loads(response.content.strip())
             
-            if not query_data:
-                send_to_dashboard(query_description,reason="Could not parsed")
-                print("Sorry, I couldn’t understand your query. I've sent it to a human.")
+            if not query_data or not query_data.get("collection") or not query_data.get("operation"):
                 return "Could not parse the query. Please try rephrasing."
             
             collection_name = query_data.get("collection")
@@ -227,7 +227,8 @@ class MongoDBAssistant:
             print("Raw LLM response:", response.content)
             update_data = extract_json_from_llm_response(response.content.strip())
 
-            if not update_data:
+            
+            if not update_data or not update_data.get("collection") or not update_data.get('operation'):
                 return "Could not parse the update request. Please try rephrasing."
 
             collection_name = update_data.get("collection")
@@ -336,6 +337,14 @@ class MongoDBAssistant:
         """Main chat interface — returns both output and tool used"""
         try:
             response = self.agent.invoke({"input": message})
+            output_text = response["output"].strip()
+            print("OUTPUT TEXT IS" + output_text)
+            if "not contain" in output_text.lower() or "iteration limit" in output_text.lower() or "cannot determine" in output_text.lower():
+                send_to_dashboard(message, reason="Agent stopped due to iteration/time limit")
+                return {
+                    "output": "⏳ I tried, but couldn't figure this one out. A human will assist you shortly.",
+                    "tool": "fallback"
+                }
             steps = response.get("intermediate_steps", [])
             
             tool_used = None
