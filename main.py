@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 from mongodb_assistant import MongoDBAssistant
 from urllib.parse import quote_plus
+from html import escape
+import json
 
 # Load environment variables
 load_dotenv()
@@ -30,12 +32,9 @@ async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
         if isinstance(result, dict) and "output" in result:
             raw_output = result["output"]
 
-            # If output is a JSON string representing a list of documents
             try:
-                import json
                 docs = json.loads(raw_output)
                 if isinstance(docs, list):
-                    # Format each document into a readable string
                     response_text = "Bookings:\n\n"
                     for i, doc in enumerate(docs, start=1):
                         response_text += f"{i}. Guest: {doc.get('guest_name')}\n   Room ID: {doc.get('room_id')}\n   Check-in: {doc.get('check_in')}\n   Check-out: {doc.get('check_out')}\n   Amount Paid: ₹{doc.get('amount_paid')}\n\n"
@@ -43,7 +42,6 @@ async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
                     response_text = raw_output
             except Exception:
                 response_text = raw_output
-
         elif isinstance(result, str):
             response_text = result
         else:
@@ -55,11 +53,15 @@ async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
     print("Response to WhatsApp:")
     print(response_text)
 
-    # Return TwiML XML response (escaped)
-    from html import escape
+    
+    safe_response = escape(response_text)[:1500]
+
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Message>{escape(response_text)}</Message>
+    <Message>{safe_response}</Message>
 </Response>"""
+
+    print("TwiML being sent to Twilio:")
+    print(twiml)
 
     return Response(content=twiml, media_type="application/xml")

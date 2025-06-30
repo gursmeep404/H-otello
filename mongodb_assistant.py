@@ -6,6 +6,7 @@ from bson import ObjectId
 from pymongo import MongoClient, ASCENDING
 import google.generativeai as genai
 from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_openai import ChatOpenAI
 from langchain.tools import Tool
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain import hub
@@ -30,10 +31,17 @@ class MongoDBAssistant:
         # Initialize Gemini
         genai.configure(api_key=api_key)
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash-exp",
+            model="gemini-1.5-flash",
             google_api_key=api_key,
             temperature=0.1
         )
+        # Initialize OpenAI
+        # self.llm = ChatOpenAI(
+        #     model="gpt-3.5-turbo",  # or 
+        #     api_key=api_key,
+        #     temperature=0.1
+# )
+
         
         # Initialize MongoDB
         self.client = MongoClient(mongodb_uri)
@@ -119,7 +127,7 @@ class MongoDBAssistant:
             
             if not query_data:
                 send_to_dashboard(query_description,reason="Could not parsed")
-                print("❌ Sorry, I couldn’t understand your query. I've sent it to a human.")
+                print("Sorry, I couldn’t understand your query. I've sent it to a human.")
                 return "Could not parse the query. Please try rephrasing."
             
             collection_name = query_data.get("collection")
