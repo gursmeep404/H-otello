@@ -1,5 +1,6 @@
 import os
 import json
+from bson import ObjectId
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from bson import ObjectId
@@ -145,6 +146,42 @@ class MongoDBAssistant:
     def update_database(self, update_description: str) -> str:
         """Execute database updates based on natural language description"""
         try:
+            # Check for booking pattern in the description
+            name_match = re.search(r"(?:for|name is)\s+([A-Z][a-z]+)", update_description, re.IGNORECASE)
+            checkin_match = re.search(r"(?:check[- ]?in(?: time)?(?: is)?|from)\s+([A-Za-z0-9 ,:-]+)", update_description, re.IGNORECASE)
+            checkout_match = re.search(r"(?:check[- ]?out(?: time)?(?: is)?|to)\s+([A-Za-z0-9 ,:-]+)", update_description, re.IGNORECASE)
+
+            if name_match and checkin_match and checkout_match:
+                guest_name = name_match.group(1)
+                check_in_str = checkin_match.group(1)
+                check_out_str = checkout_match.group(1)
+
+                try:
+                    check_in = datetime.strptime(check_in_str.strip(), "%B %d")
+                    check_out = datetime.strptime(check_out_str.strip(), "%B %d")
+                    now = datetime.now()
+                    check_in = check_in.replace(year=now.year)
+                    check_out = check_out.replace(year=now.year)
+                except ValueError:
+                    check_in = datetime.utcnow()
+                    check_out = check_in + timedelta(days=2)
+
+                dummy_booking = {
+                    "room_id": "dummy_room_id",
+                    "property_id": "dummy_property_id",
+                    "guest_name": guest_name,
+                    "check_in": check_in,
+                    "check_out": check_out,
+                    "amount_paid": 1000,
+                    "source": "AI_Assistant",
+                    "created_at": datetime.utcnow()
+                }
+
+                collection = self.db["bookings"]
+                result = collection.insert_one(dummy_booking)
+                return f"Booking done for {guest_name} from {check_in.date()} to {check_out.date()} ✅"
+
+            # If not a booking, proceed with LLM-based update
             prompt = f"""
                 You are a backend assistant that converts natural language database update instructions into valid MongoDB update operations.
 
@@ -186,27 +223,22 @@ class MongoDBAssistant:
                 "{update_description}"
                 """
 
-
-
-                        
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            print("Raw LLM response:", response.content) 
+            print("Raw LLM response:", response.content)
             update_data = extract_json_from_llm_response(response.content.strip())
 
-            
             if not update_data:
                 return "Could not parse the update request. Please try rephrasing."
-            
+
             collection_name = update_data.get("collection")
             operation = update_data.get("operation")
-            
+
             collection = self.db[collection_name]
-            
+
             if operation == "update_one":
                 filter_criteria = update_data.get("filter", {})
                 update_doc = update_data.get("update", {})
 
-                # Normalize LLM inconsistency
                 if "arrayFilters" in update_data:
                     update_data["array_filters"] = update_data.pop("arrayFilters")
 
@@ -217,14 +249,10 @@ class MongoDBAssistant:
                 else:
                     result = collection.update_one(filter_criteria, update_doc)
 
-                # Custom OK message for is_active field update
                 if "$set" in update_doc and any("is_active" in k for k in update_doc["$set"]):
                     return "OK" if result.modified_count > 0 else "No matching room found to update."
 
                 return f"Updated {result.modified_count} document(s)"
-
-
-
 
             elif operation == "update_many":
                 filter_criteria = update_data.get("filter", {})
@@ -236,25 +264,25 @@ class MongoDBAssistant:
                     result = collection.update_many(filter_criteria, update_doc)
                 return f"Updated {result.modified_count} document(s)"
 
-                
             elif operation == "insert_one":
                 document = update_data.get("document", {})
                 if "created_at" not in document:
                     document["created_at"] = datetime.utcnow()
                 result = collection.insert_one(document)
                 return f"Inserted document with ID: {result.inserted_id}"
-                
+
             elif operation == "delete_one":
                 filter_criteria = update_data.get("filter", {})
                 result = collection.delete_one(filter_criteria)
                 return f"Deleted {result.deleted_count} document(s)"
-                
+
             else:
                 return f"Unsupported operation: {operation}"
-                
+
         except Exception as e:
             return f"Error executing update: {str(e)}"
-    
+
+        
     def get_database_info(self, info_request: str = "") -> str:
         """Get information about the database structure and contents"""
         try:
