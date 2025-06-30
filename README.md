@@ -24,3 +24,6 @@ These independent hosts often manage between 1–20 rooms and struggle with clun
 
 ### 4. **OTA-Ready**
 - We’ve architected Otello with extensible API endpoints to connect with Online Travel Agencies (OTAs) like Airbnb, Booking.com, etc., making it a cross-platform assistant.
+
+
+![Tech Flow](./images/flow.jpeg "flow")
